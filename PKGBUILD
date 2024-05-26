@@ -26,8 +26,6 @@ build() {
 }
 
 package() {
-  pwd
   cd topmem-cpp
-  pwd
   sudo make install
 }
