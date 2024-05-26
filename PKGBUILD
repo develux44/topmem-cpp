@@ -16,5 +16,5 @@ build() {
 
 package() {
   cd topmem-cpp
-  make DESTDIR="$pkgdir/" install
+  install -Dm755 topmem /usr/bin/topmem
 }
