@@ -15,7 +15,6 @@ replaces=()
 backup=()
 options=()
 install=
-changelog=Changelog.md
 source=("git+https://github.com/develux44/topmem-cpp.git#branch=main")
 noextract=()
 sha256sums=('SKIP')
