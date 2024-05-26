@@ -1,2 +1,4 @@
 *.out
 topmem
+topmem.tar.gz
+topmem-cpp
