@@ -16,5 +16,5 @@ build() {
 
 package() {
   cd topmem-cpp
-  sudo make install
+  install -D LICENSE
 }
