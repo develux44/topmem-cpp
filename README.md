@@ -8,7 +8,7 @@ Thanks to CachyOS for [source script](https://github.com/CachyOS/CachyOS-Setting
 ```sh
 git clone https://github.com/develux44/topmem-cpp.git
 make
-topmem
+/usr/bin/topmem
 ```
 
 # Screenshot 
