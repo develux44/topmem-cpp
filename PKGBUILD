@@ -1,3 +1,4 @@
+# Maintainer: develux <erroor234@gmail.com>
 pkgname=topmem-cpp
 pkgver=0.1
 pkgrel=1
