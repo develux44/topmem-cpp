@@ -1,6 +1,6 @@
 # topmem-cpp
 topmem app rewritten in C++
-
+Thanks to CachyOS for [source script](https://github.com/CachyOS/CachyOS-Settings/blob/master/usr/bin/topmem)
 # How to
 ```sh
 git clone https://github.com/develux44/topmem-cpp.git
