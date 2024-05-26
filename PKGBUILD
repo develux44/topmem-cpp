@@ -16,5 +16,5 @@ build() {
 
 package() {
   cd topmem-cpp
-  install -Dm755 topmem /usr/bin/topmem
+  install -Dm755 topmem $DESTDIR/usr/bin/topmem
 }
