@@ -29,5 +29,5 @@ package() {
   pwd
   cd topmem-cpp
   pwd
-  make install
+  sudo make install
 }
