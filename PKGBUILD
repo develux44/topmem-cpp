@@ -8,7 +8,6 @@ url="https://github.com/develux44/topmem-cpp"
 license=('GPL-3.0-only')
 makedepends=(gcc git)
 conflicts=(topmem-cpp)
-replaces=(topmem-cpp)
 provides=("topmem-cpp=${pkgver}")
 source=("git+https://github.com/develux44/topmem-cpp.git")
 sha256sums=('SKIP')
