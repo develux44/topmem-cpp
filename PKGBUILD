@@ -1,4 +1,3 @@
-# Maintainer: Konstantin Stepanov <me@kstep.me>
 pkgname=topmem-cpp
 pkgver=0.1
 pkgrel=1
