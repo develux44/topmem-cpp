@@ -16,5 +16,6 @@ build() {
 
 package() {
   cd topmem-cpp
+  make install
   install -D LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
 }
