@@ -1,6 +1,8 @@
 # topmem-cpp
 topmem app rewritten in C++
 
+It shows the top 10 processes using RAM and SWAP 
+
 Installing require `sudo` privileges
 
 Thanks to CachyOS for [source script](https://github.com/CachyOS/CachyOS-Settings/blob/master/usr/bin/topmem)
