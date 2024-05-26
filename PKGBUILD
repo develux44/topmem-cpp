@@ -1,6 +1,6 @@
 # Maintainer: develux <erroor234@gmail.com>
 pkgname=topmem-cpp-git
-pkgver=0.1
+pkgver=WIP.r19.g90aa5eb
 pkgrel=1
 pkgdesc="It shows the top 10 processes using RAM and SWAP"
 arch=('x86_64')
@@ -9,6 +9,7 @@ license=('GPL-3.0-only')
 makedepends=(gcc git)
 conflicts=(topmem-cpp)
 replaces=(topmem-cpp)
+provides=("topmem-cpp=${pkgver}")
 source=("git+https://github.com/develux44/topmem-cpp.git")
 sha256sums=('SKIP')
 
