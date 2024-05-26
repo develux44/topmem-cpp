@@ -17,7 +17,6 @@ pkgver() {
   printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
 
-
 build() {
   cd topmem-cpp
   make
