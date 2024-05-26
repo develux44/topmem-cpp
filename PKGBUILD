@@ -6,18 +6,8 @@ pkgdesc="It shows the top 10 processes using RAM and SWAP"
 arch=('x86_64')
 url="https://github.com/develux44/topmem-cpp"
 license=('GPL-3.0-only')
-groups=()
-depends=()
-makedepends=(gcc)
-optdepends=()
-provides=()
-conflicts=()
-replaces=()
-backup=()
-options=()
-install=
+makedepends=(gcc git)
 source=("git+https://github.com/develux44/topmem-cpp.git#branch=main")
-noextract=()
 sha256sums=('SKIP')
 build() {
   cd topmem-cpp
