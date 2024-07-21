@@ -1,5 +1,5 @@
 topmem:
-	g++ topmem.cpp -O3 -o topmem
+	g++ topmem.cpp -Ofast -o topmem
 	
 install:
 ifneq ($(shell id -u), 0)
