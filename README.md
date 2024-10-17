@@ -7,6 +7,7 @@ Thanks to CachyOS for [source script](https://github.com/CachyOS/CachyOS-Setting
 # How to
 ```sh
 git clone https://github.com/develux44/topmem-cpp.git
+cd topmem-cpp
 make
 sudo make install
 /usr/bin/topmem
