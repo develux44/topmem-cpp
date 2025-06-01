@@ -1,93 +1,236 @@
 #include <iostream>
 #include <fstream>
-#include <regex>
-#include <map>
+#include <sstream>
+#include <iomanip>
 #include <vector>
+#include <map>
 #include <algorithm>
-#include <filesystem>
+#include <dirent.h>
+#include <unistd.h>
+#include <cctype>
+#include <cstring>
 
-namespace fs = std::filesystem;
+// Error handling function
+void die(const std::string& message) {
+    std::cerr << message << std::endl;
+    exit(EXIT_FAILURE);
+}
 
-std::map<std::string, std::pair<long long, long long>> getProcessMap() {
-    std::map<std::string, std::pair<long long, long long>> map;
-    std::regex pid_pattern("[0-9]+");
-    std::regex vm_rss_pattern("VmRSS:\\s*([0-9]+)");
-    std::regex vm_swap_pattern("VmSwap:\\s*([0-9]+)");
+// Helper function to trim whitespace
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(' ');
+    if (first == std::string::npos) return "";
+    size_t last = str.find_last_not_of(' ');
+    return str.substr(first, (last - first + 1));
+}
 
-    for (const auto& entry : fs::directory_iterator("/proc")) {
-        if (entry.is_directory()) {
-            std::string path = entry.path();
-            std::string pid = path.substr(path.find_last_of('/') + 1);
-            if (std::regex_match(pid, pid_pattern)) {
-                std::ifstream status_file((path + "/status").c_str());
-                std::string line;
-                long long rss = 0, swap = 0;
-                while (std::getline(status_file, line)) {
-                    std::smatch match;
-                    if (rss == 0 && std::regex_search(line, match, vm_rss_pattern)) {
-                        rss = std::stoll(match[1]);
-                    } else if (swap == 0 && std::regex_search(line, match, vm_swap_pattern)) {
-                        swap = std::stoll(match[1]);
-                    }
-                }
-                status_file.close();
+// Extract values from /proc/[pid]/status
+bool get_process_values(pid_t pid, long& rss, long& swap) {
+    std::string path = "/proc/" + std::to_string(pid) + "/status";
+    std::ifstream file(path);
+    if (!file.is_open()) return false;
 
-                std::ifstream cmdline_file((path + "/cmdline").c_str());
-                std::string cmdline;
-                std::getline(cmdline_file, cmdline);
-                cmdline_file.close();
+    rss = 0;
+    swap = 0;
+    std::string line;
 
-                std::string name = cmdline.substr(0, cmdline.find('\0'));
-                if (!name.empty() && rss > 0) {
-                    if (map.find(name) != map.end()) {
-                        map[name].first += rss;
-                        map[name].second += swap;
-                    } else {
-                        map[name] = {rss, swap};
-                    }
-                }
+    while (std::getline(file, line)) {
+        if (line.find("VmRSS:") == 0) {
+            std::istringstream iss(line.substr(6));
+            iss >> rss;  // Value is in kB
+        } else if (line.find("VmSwap:") == 0) {
+            std::istringstream iss(line.substr(7));
+            iss >> swap; // Value is in kB
+        }
+        
+        // Early exit if we've found both values
+        if (rss && swap) break;
+    }
+    return true;
+}
+
+// Get KSM profit from /proc/[pid]/ksm_stat
+long get_process_ksm_profit(pid_t pid) {
+    std::string path = "/proc/" + std::to_string(pid) + "/ksm_stat";
+    std::ifstream file(path);
+    if (!file.is_open()) return 0;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.find("ksm_process_profit") != std::string::npos) {
+            size_t pos = line.find_last_of(' ');
+            if (pos != std::string::npos) {
+                return std::stol(line.substr(pos + 1));
+            }
+        }
+    }
+    return 0;
+}
+
+// Get first argument from /proc/[pid]/cmdline
+std::string get_process_first_arg(pid_t pid) {
+    std::string path = "/proc/" + std::to_string(pid) + "/cmdline";
+    std::ifstream file(path);
+    if (!file.is_open()) return "";
+
+    std::string cmdline;
+    std::getline(file, cmdline);
+    
+    // Find first null terminator
+    size_t pos = cmdline.find('\0');
+    if (pos != std::string::npos) {
+        return cmdline.substr(0, pos);
+    }
+    return cmdline;
+}
+
+// Truncate long strings with ellipsis
+std::string truncate(const std::string& str, size_t max_len = 25) {
+    if (str.length() <= max_len) return str;
+    return str.substr(0, max_len - 3) + "...";
+}
+
+// Extract filename from path
+std::string get_filename(const std::string& path) {
+    size_t pos = path.find_last_of('/');
+    if (pos == std::string::npos) return path;
+    return path.substr(pos + 1);
+}
+
+// Process data structure
+struct ProcessData {
+    long rss;
+    long swap;
+    long ksm;
+};
+
+// Aggregation and sorting
+void get_process_map(std::map<std::string, ProcessData>& process_map, 
+                    const std::string& sort_by = "rss") {
+
+    DIR* dir = opendir("/proc");
+    if (!dir) die("Cannot open /proc directory");
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        // Check if directory name is numeric (PID)
+        if (entry->d_type != DT_DIR) continue;
+        
+        std::string dname(entry->d_name);
+        if (dname.find_first_not_of("0123456789") != std::string::npos) continue;
+
+        pid_t pid = std::stoi(dname);
+        long rss, swap;
+        if (!get_process_values(pid, rss, swap)) continue;
+
+        std::string name = get_process_first_arg(pid);
+        if (name.empty()) continue;
+
+        long ksm = get_process_ksm_profit(pid);
+
+        // Aggregate data by process name
+        auto it = process_map.find(name);
+        if (it != process_map.end()) {
+            it->second.rss += rss;
+            it->second.swap += swap;
+            it->second.ksm += ksm;
+        } else {
+            process_map[name] = {rss, swap, ksm};
+        }
+    }
+    closedir(dir);
+}
+
+// Print top processes
+void print_top(size_t n, const std::string& sort_by) {
+    std::map<std::string, ProcessData> process_map;
+    get_process_map(process_map, sort_by);
+
+    // Convert to vector for sorting
+    std::vector<std::pair<std::string, ProcessData>> processes;
+    for (const auto& p : process_map) {
+        processes.emplace_back(p.first, p.second);
+    }
+
+    // Sort based on selected metric
+    std::sort(processes.begin(), processes.end(),
+        [&](const auto& a, const auto& b) {
+            if (sort_by == "swap") 
+                return a.second.swap > b.second.swap;
+            else if (sort_by == "ksm") 
+                return a.second.ksm > b.second.ksm;
+            return a.second.rss > b.second.rss; // Default to RSS
+        }
+    );
+
+    // Header
+    std::cout << std::left << std::setw(9) << "MEMORY" 
+              << std::setw(35) << "Top " + std::to_string(n) + " processes"
+              << std::setw(9) << "SWAP"
+              << "KSM" << std::endl;
+
+    // Print top N entries
+    size_t count = 0;
+    for (const auto& p : processes) {
+        if (count++ >= n) break;
+        
+        const auto& data = p.second;
+        std::string mem = std::to_string(data.rss / 1024) + "M";
+        std::string swap = std::to_string(data.swap / 1024) + "M";
+        std::string ksm = std::to_string(data.ksm / (1024 * 1024)) + "M";
+        
+        std::cout << std::left << std::setw(9) << mem
+                  << std::setw(35) << truncate(get_filename(p.first))
+                  << std::setw(9) << swap
+                  << ksm << std::endl;
+    }
+}
+
+// Show help information
+void print_help() {
+    std::cout << R"(
+Shows names of the top 10 (or N) processes by memory consumption
+
+Usage: topmem [OPTIONS] [N]
+
+Arguments:
+  [N] [default: 10]
+
+Options:
+  -s, --sort <TYPE>  Column to sort by [possible values: rss (default), swap, ksm]
+  -h, --help         Show this message
+)" << std::endl;
+    exit(EXIT_SUCCESS);
+}
+
+int main(int argc, char* argv[]) {
+    size_t n = 10;
+    std::string sort_by = "rss";
+
+    // Parse command line arguments
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        
+        if (arg == "-h" || arg == "--help") {
+            print_help();
+        }
+        else if (arg == "-s" || arg == "--sort") {
+            if (i + 1 >= argc) die("Missing sort type");
+            sort_by = argv[++i];
+            
+            if (sort_by != "rss" && sort_by != "swap" && sort_by != "ksm") {
+                die("Invalid sort type. Valid options: rss, swap, ksm");
+            }
+        }
+        else {
+            try {
+                n = std::stoul(arg);
+            } catch (...) {
+                die("Invalid number: " + arg);
             }
         }
     }
 
-    return map;
-}
-
-std::string truncateString(const std::string& str) {
-    if (str.length() > 25) {
-        return str.substr(0, 22) + "...";
-    } else {
-        return str;
-    }
-}
-
-std::string getFilenameFromPath(const std::string& path) {
-    size_t lastSlash = path.find_last_of('/');
-    if (lastSlash != std::string::npos) {
-        return path.substr(lastSlash + 1);
-    } else {
-        return path;
-    }
-}
-
-int main(int argc, char* argv[]) {
-    int size = argc > 1 ? std::stoi(argv[1]) : 10;
-    std::map<std::string, std::pair<long long, long long>> map = getProcessMap();
-
-    std::vector<std::tuple<long long, long long, std::string>> sortedMap;
-    for (const auto& entry : map) {
-        sortedMap.emplace_back(entry.second.first, entry.second.second, entry.first);
-    }
-
-    std::sort(sortedMap.begin(), sortedMap.end(), [](const auto& a, const auto& b) {
-        return std::get<0>(a) > std::get<0>(b);
-    });
-
-    // std::cout << std::left << std::setw(9) << "MEMORY" << std::setw(8) << "Top" << size << " processes" << std::setw(20) << "SWAP" << std::endl;
-    std::cout << std::left << std::setw(9) << "MEMORY" << "Top " << size << " processes" << "\t\t" << "    SWAP" << std::endl;
-    for (int i = 0; i < size && i < sortedMap.size(); i++) {
-        std::cout << std::left << std::setw(9) << std::to_string(std::get<0>(sortedMap[i]) / 1024) + "M" << std::setw(35) << truncateString(getFilenameFromPath(std::get<2>(sortedMap[i]))) << std::setw(9) << std::to_string(std::get<1>(sortedMap[i]) / 1024) + "M" << std::endl;
-    }
-
-    return 0;
+    print_top(n, sort_by);
+    return EXIT_SUCCESS;
 }
