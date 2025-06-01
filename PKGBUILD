@@ -1,6 +1,6 @@
 # Maintainer: develux <erroor234@gmail.com>
 pkgname=topmem-cpp-git
-pkgver=r48.456800b
+pkgver=r49.72f9311
 pkgrel=1
 pkgdesc="It shows the top N processes using RAM and SWAP"
 arch=('x86_64')
